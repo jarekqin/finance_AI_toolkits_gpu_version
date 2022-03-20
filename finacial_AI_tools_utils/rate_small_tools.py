@@ -1,6 +1,3 @@
-import numpy as np
-
-
 def FV(A,n,r,m):
     """
     calcuate fave value

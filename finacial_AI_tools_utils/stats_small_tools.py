@@ -1,4 +1,3 @@
-import numpy as np
 import statsmodels.api as sma
 import matplotlib.pyplot as plt
 import arch

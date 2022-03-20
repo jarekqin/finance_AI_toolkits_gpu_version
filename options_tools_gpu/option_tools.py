@@ -1,4 +1,4 @@
-import numpy as np
+import cupy as cp
 from scipy.stats import norm
 import pandas as pd
 import math
@@ -24,10 +24,10 @@ def implied_volatility(options_price, underlying_price, strike_price, risk_free,
 
     if options_type in ['call', 'CALL', 'Call']:
         def call_bs(s, k, sigma, r, t):
-            d1 = (np.log(s / k) + (r + pow(sigma, 2) / 2) * t) / (sigma * np.sqrt(t))
-            d2 = d1 - sigma * np.sqrt(t)
-            call_value = s * norm.cdf(d1) - k * np.exp(-r * t) * norm.cdf(d2)
-            return call_value
+            d1 = (cp.log(s / k) + (r + pow(sigma, 2) / 2) * t) / (sigma * cp.sqrt(t))
+            d2 = d1 - sigma * cp.sqrt(t)
+            call_value = s * norm.cdf(d1.get()) - k * cp.exp(-r * t) * norm.cdf(d2.get())
+            return call_value.get().item()
 
         call_min = call_bs(underlying_price, strike_price, sigma_min, risk_free, t)
         call_max = call_bs(underlying_price, strike_price, sigma_max, risk_free, t)
@@ -45,10 +45,10 @@ def implied_volatility(options_price, underlying_price, strike_price, risk_free,
                 sigma_max = sigma_mid
     else:
         def put_bs(s, k, sigma, r, t):
-            d1 = (np.log(s / k) + (r + pow(sigma, 2) / 2) * t) / (sigma * np.sqrt(t))
-            d2 = d1 - sigma * np.sqrt(t)
-            put_value = k * np.exp(-r * t) * norm.cdf(-d2) - s * norm.cdf(-d1)
-            return put_value
+            d1 = (cp.log(s / k) + (r + pow(sigma, 2) / 2) * t) / (sigma * cp.sqrt(t))
+            d2 = d1 - sigma * cp.sqrt(t)
+            put_value = k * cp.exp(-r * t) * norm.cdf(-d2) - s * norm.cdf(-d1)
+            return put_value.get().item()
 
         put_min = put_bs(underlying_price, strike_price, sigma_min, risk_free, t)
         put_max = put_bs(underlying_price, strike_price, sigma_max, risk_free, t)
@@ -81,15 +81,15 @@ def BSM(s, k, sigma, r, t0, t1, types):
     """
     t0, t1 = pd.to_datetime(t0).date(), pd.to_datetime(t1).date()
     t = (t1 - t0).days / 365
-    d1 = (np.log(s / k) + (r + pow(sigma, 2) / 2) * t) / (sigma * np.sqrt(t))
-    d2 = d1 - sigma * np.sqrt(t)
+    d1 = (cp.log(s / k) + (r + pow(sigma, 2) / 2) * t) / (sigma * cp.sqrt(t))
+    d2 = d1 - sigma * cp.sqrt(t)
     if types in ['call', 'CALL', 'Call']:
-        options_price = s * norm.cdf(d1) - k * np.exp(-r * t) * norm.cdf(d2)
+        options_price = s * norm.cdf(d1.get()) - k * cp.exp(-r * t) * norm.cdf(d2.get())
     elif types in ['put', 'PUT', 'Put']:
-        options_price = k * np.exp(-r * t) * norm.cdf(-d2) - s * norm.cdf(-d1)
+        options_price = k * cp.exp(-r * t) * norm.cdf(-d2.get()) - s * norm.cdf(-d1.get())
     else:
         raise TypeError('types only supports "call/put"!')
-    return options_price
+    return options_price.get().item()
 
 
 def eu_options_letters(s, k, sigma, r, t0, t1, letter, types):
@@ -107,37 +107,37 @@ def eu_options_letters(s, k, sigma, r, t0, t1, letter, types):
     """
     t0, t1 = pd.to_datetime(t0).date(), pd.to_datetime(t1).date()
     t = (t1 - t0).days / 365
-    d1 = (np.log(s / k) + (r + pow(sigma, 2) / 2) * t) / (sigma * np.sqrt(t))
-    d2 = d1 - sigma * np.sqrt(t)
+    d1 = (cp.log(s / k) + (r + pow(sigma, 2) / 2) * t) / (sigma * cp.sqrt(t))
+    d2 = d1 - sigma * cp.sqrt(t)
     result = None
 
     if letter in ['Delta', 'delta', 'DELTA']:
         if types in ['call', 'CALL', 'Call']:
-            result = norm.cdf(d1)
+            result = norm.cdf(d1.get())
         elif types in ['put', 'PUT', 'Put']:
-            result = norm.cdf(d1) - 1
+            result = norm.cdf(d1.get()) - 1
         else:
             raise TypeError('types only supports "call/put"!')
 
     elif letter in ['Gamma', 'gamma', 'GAMMA']:
-        result = np.exp(-pow(d1, 2) / 2) / (s * sigma * np.sqrt(2 * np.pi * t))
+        result = cp.exp(-pow(d1.get(), 2) / 2) / (s * sigma * cp.sqrt(2 * cp.pi * t))
 
     elif letter in ['Theta', 'theta', 'THETA']:
         if types in ['call', 'CALL', 'Call']:
-            result = -(s * sigma * np.exp(-pow(d1, 2) / 2)) / (2 * np.sqrt(2 * np.pi * t)) - r * k * np.exp(
-                (-r * t) * norm.cdf(d2))
+            result = -(s * sigma * cp.exp(-pow(d1.get(), 2) / 2)) / (2 * cp.sqrt(2 * cp.pi * t)) - r * k * cp.exp(
+                (-r * t) * norm.cdf(d2.get()))
         elif types in ['put', 'PUT', 'Put']:
-            result = -(s * sigma * np.exp(-pow(d1, 2) / 2)) / (2 * np.sqrt(2 * np.pi * t)) + r * k * np.exp(
-                (-r * t) * norm.cdf(-d2))
+            result = -(s * sigma * cp.exp(-pow(d1.get(), 2) / 2)) / (2 * cp.sqrt(2 * cp.pi * t)) + r * k * cp.exp(
+                (-r * t) * norm.cdf(-d2.get()))
 
     elif letter in ['Vega', 'vega', 'VEGA']:
-        result = s * np.sqrt(t) * np.exp(-pow(d1, 2) / 2) / np.sqrt(2 * np.pi)
+        result = s * cp.sqrt(t) * cp.exp(-pow(d1.get(), 2) / 2) / cp.sqrt(2 * cp.pi)
 
     elif letter in ['Rho', 'rho', 'RHO']:
         if types in ['call', 'CALL', 'Call']:
-            result = k * t * np.exp(-r * t) * norm.cdf(d2)
+            result = k * t * cp.exp(-r * t) * norm.cdf(d2.get())
         elif types in ['put', 'PUT', 'Put']:
-            result = -k * t * np.exp(-r * t) * norm.cdf(-d2)
+            result = -k * t * cp.exp(-r * t) * norm.cdf(-d2.get())
         else:
             raise TypeError('types only supports "call/put"!')
 
@@ -176,9 +176,9 @@ def options_parity(call_price, put_price, underlying_price, strike_price, risk_f
     :return: equitum value
     """
     if option_type == 'call':
-        return put_price + underlying_price - strike_price * np.exp(-risk_free * maturity)
+        return put_price + underlying_price - strike_price * cp.exp(-risk_free * maturity).get().item()
     else:
-        return call_price + strike_price * np.exp(-risk_free * maturity) - underlying_price
+        return (call_price + strike_price * cp.exp(-risk_free * maturity) - underlying_price).get().item()
 
 
 def binary_tree_eu_options_cal(underlying_price, strike_price, sigma, risk_free, maturity, steps, options_type):
@@ -195,20 +195,20 @@ def binary_tree_eu_options_cal(underlying_price, strike_price, sigma, risk_free,
     """
     from math import factorial
     t = maturity / steps
-    u = np.exp(sigma * np.sqrt(t))
+    u = cp.exp(sigma * cp.sqrt(t))
     d = 1 / u
-    p = (np.exp(risk_free * t) - d) / (u - d)
+    p = (cp.exp(risk_free * t) - d) / (u - d)
     n_list = range(0, steps + 1)
-    A = []
+    A=cp.empty(len(n_list))
     for i in n_list:
-        c_nj = np.maximum(underlying_price * pow(u, i) * pow(d, steps - i) - strike_price, 0)
+        c_nj = cp.maximum(underlying_price * pow(u, i) * pow(d, steps - i) - strike_price, 0)
         num = factorial(steps) / (factorial(i) * factorial(steps - i))
-        A.append(num * pow(p, i) * pow(1 - p, steps - i) * c_nj)
+        A[i]=((num * pow(p, i) * pow(1 - p, steps - i) * c_nj))
     if options_type == 'call':
-        return np.exp(-risk_free * maturity) * np.sum(A)
+        return (cp.exp(-risk_free * maturity) * cp.sum(A)).get().item()
     elif options_type == 'put':
-        return np.exp(-risk_free * maturity) * np.sum(A) + strike_price * np.exp(
-            -risk_free * maturity) - underlying_price
+        return (cp.exp(-risk_free * maturity) * cp.sum(cp.array(A)) + strike_price * cp.exp(
+            -risk_free * maturity) - underlying_price).get().item()
     else:
         raise TypeError('options_type only supports "call/put" with lower letters!')
 
@@ -231,23 +231,23 @@ def binary_tree_us_options_cal_and_letters(underlying_price, strike_price, sigma
     """
     from math import factorial
     t = maturity / steps
-    u = np.exp(sigma * np.sqrt(t))
+    u = cp.exp(sigma * cp.sqrt(t))
     d = 1 / u
-    p = (np.exp(risk_free * t) - d) / (u - d)
-    options_matrix = np.zeros((steps + 1, steps + 1))
-    n_list = np.arange(0, steps + 1)
+    p = (cp.exp(risk_free * t) - d) / (u - d)
+    options_matrix = cp.zeros((steps + 1, steps + 1))
+    n_list = cp.arange(0, steps + 1)
     s_end = underlying_price * pow(u, steps - n_list) * pow(d, n_list)
     if options_type == 'call':
-        options_matrix[:, -1] = np.maximum(s_end - strike_price, 0)
+        options_matrix[:, -1] = cp.maximum(s_end - strike_price, 0)
         i_list = list(range(0, steps))
         i_list.reverse()
         for i in i_list:
-            j_list = np.arange(i + 1)
+            j_list = cp.arange(i + 1)
             si = underlying_price * pow(u, i - j_list) * pow(d, j_list)
-            call_strike = np.maximum(si - strike_price, 0)
+            call_strike = cp.maximum(si - strike_price, 0)
             call_nostrike = (p * options_matrix[:i + 1, i + 1] + (1 - p) * options_matrix[1:i + 2, i + 1]) * \
-                            np.exp(-risk_free * t)
-            options_matrix[:i + 1, i] = np.maximum(call_strike, call_nostrike)
+                            cp.exp(-risk_free * t)
+            options_matrix[:i + 1, i] = cp.maximum(call_strike, call_nostrike)
         if return_letters:
             greek = {}
             delta_ = (options_matrix[0, 1] - options_matrix[1, 1]) / (underlying_price * u - underlying_price * d)
@@ -266,29 +266,29 @@ def binary_tree_us_options_cal_and_letters(underlying_price, strike_price, sigma
                                                maturity, steps, options_type,
                                                False, position) - options_matrix[0, 0]) / 1e-4
             if position == 'long':
-                greek['delta'] = delta_
+                greek['delta'] = delta_.get().item()
             elif position == 'short':
-                greek['delta'] = -delta_
+                greek['delta'] = -delta_.get().item()
             else:
                 raise TypeError('wrong position value,only supporting "long/short"!')
-            greek['gamma'] = gamma_
-            greek['theta'] = theta_
-            greek['vega'] = vega_
-            greek['rho'] = rho_
-            return options_matrix[0, 0], greek
+            greek['gamma'] = gamma_.get().item()
+            greek['theta'] = theta_.get().item()
+            greek['vega'] = vega_.get().item()
+            greek['rho'] = rho_.get().item()
+            return options_matrix[0, 0].get().item(), greek
         else:
-            return options_matrix[0, 0]
+            return options_matrix[0, 0].get().item()
     elif options_type == 'put':
-        options_matrix[:, -1] = np.maximum(strike_price - s_end, 0)
+        options_matrix[:, -1] = cp.maximum(strike_price - s_end, 0)
         i_list = list(range(0, steps))
         i_list.reverse()
         for i in i_list:
-            j_list = np.arange(i + 1)
+            j_list = cp.arange(i + 1)
             si = underlying_price * pow(u, i - j_list) * pow(d, j_list)
-            put_strike = np.maximum(strike_price - si, 0)
-            put_nostrike = np.exp(-risk_free * t) * (
+            put_strike = cp.maximum(strike_price - si, 0)
+            put_nostrike = cp.exp(-risk_free * t) * (
                     p * options_matrix[:i + 1, i + 1] + (1 - p) * options_matrix[1:i + 2, i + 1])
-            options_matrix[:i + 1, i] = np.maximum(put_strike, put_nostrike)
+            options_matrix[:i + 1, i] = cp.maximum(put_strike, put_nostrike)
         if return_letters:
             greek = {}
             delta_ = (options_matrix[0, 1] - options_matrix[1, 1]) / (underlying_price * u - underlying_price * d)
@@ -307,18 +307,18 @@ def binary_tree_us_options_cal_and_letters(underlying_price, strike_price, sigma
                                                maturity, steps, options_type,
                                                False, position) - options_matrix[0, 0]) / 1e-4
             if position == 'long':
-                greek['delta'] = delta_
+                greek['delta'] = delta_.get().item()
             elif position == 'short':
-                greek['delta'] = -delta_
+                greek['delta'] = -delta_.get().item()
             else:
                 raise TypeError('wrong position value,only supporting "long/short"!')
-            greek['gamma'] = gamma_
-            greek['theta'] = theta_
-            greek['vega'] = vega_
-            greek['rho'] = rho_
-            return options_matrix[0, 0], greek
+            greek['gamma'] = gamma_.get().item()
+            greek['theta'] = theta_.get().item()
+            greek['vega'] = vega_.get().item()
+            greek['rho'] = rho_.get().item()
+            return options_matrix[0, 0].get().item(), greek
         else:
-            return options_matrix[0, 0]
+            return options_matrix[0, 0].get().item()
 
 
 if __name__ == '__main__':
