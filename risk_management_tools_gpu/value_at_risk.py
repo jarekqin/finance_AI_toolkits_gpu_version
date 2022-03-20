@@ -1,5 +1,5 @@
-import numpy as np
-import pandas as pd
+import cupy as cp
+import cudf as pd
 import scipy.stats as stats
 
 
@@ -19,11 +19,11 @@ def VaR_VarCov(market_value, weighted_matrix, return_vector, days, percentile):
         return_vector = return_vector.values
     return_mean = return_vector.mean().values
     r_cov = return_vector.cov().values
-    return_daily = np.sum(weighted_matrix * return_mean)
-    Vp = np.sqrt(np.dot(weighted_matrix, np.dot(r_cov, weighted_matrix.T)))
+    return_daily = cp.sum(weighted_matrix * return_mean)
+    Vp = cp.sqrt(cp.dot(weighted_matrix, cp.dot(r_cov, weighted_matrix.T)))
     z = stats.norm.ppf(q=1 - percentile)
-    z = np.abs(z)
-    Var = np.sqrt(days) * market_value * (z * Vp - return_daily)
+    z = cp.abs(z)
+    Var = cp.sqrt(days) * market_value * (z * Vp - return_daily)
     return Var
 
 
@@ -43,14 +43,14 @@ def Var_His(market_value, weighted_matrix, return_vector, days, percentile, sing
         return_vector = return_vector.values
     value_assets = market_value * weighted_matrix
     if not single_underlying:
-        return_history = np.dot(return_vector, value_assets)
+        return_history = cp.dot(return_vector, value_assets)
     else:
         return_history = return_vector * value_assets
 
     # calculate var
-    var_1day = np.abs(np.percentile(a=return_history, q=(1 - percentile) * 100))
-    var_ndays = np.sqrt(days) * var_1day
-    return var_ndays
+    var_1day = cp.abs(cp.percentile(a=cp.array(return_history), q=(1 - percentile) * 100))
+    var_ndays = cp.sqrt(days) * var_1day
+    return var_ndays.get().item()
 
 
 def Var_MCSM(market_value, price_matrix, weighted_matrix, return_vector, days, percentile, path=10000, year=1,
@@ -76,27 +76,27 @@ def Var_MCSM(market_value, price_matrix, weighted_matrix, return_vector, days, p
 
     if not singal_underlying and std_value is None:
         r_mean = return_vector.mean(axis=1) * 252 * year
-        r_vol = return_vector.std(axis=1) * np.sqrt(year * 252)
+        r_vol = cp.array(return_vector.std(axis=1))* cp.sqrt(year * 252)
         n_assets = len(return_vector)
     else:
-        r_mean = np.array([return_vector])
-        r_vol = np.array([std_value])
+        r_mean = cp.array([return_vector])
+        r_vol = cp.array([std_value])
         n_assets = 1
     dt = 1 / (year * 252)
-    epsilon = np.random.standard_normal(size=path)
-    p_new = np.zeros(shape=(path, n_assets))
+    epsilon = cp.random.standard_normal(size=path)
+    p_new = cp.zeros(shape=(path, n_assets))
     for i in range(n_assets):
-        p_new[:, i] = price_matrix[i] * np.exp(
-            (r_mean[i] - 0.5 * r_vol[i] ** 2) * dt + r_vol[i] * epsilon * np.sqrt(dt))
-    s_delta = (np.dot(p_new / (price_matrix.T) - 1, weighted_matrix)) * market_value
-    var_1day = np.abs(np.percentile(a=s_delta, q=(1 - percentile) * 100))
-    var_ndays = np.sqrt(days) * var_1day
-    return var_ndays
+        p_new[:, i] = price_matrix[i] * cp.exp(
+            (r_mean[i] - 0.5 * r_vol[i] ** 2) * dt + r_vol[i] * epsilon * cp.sqrt(dt))
+    s_delta = (cp.dot(p_new / (price_matrix.T) - 1, weighted_matrix)) * market_value
+    var_1day = cp.abs(cp.percentile(a=s_delta, q=(1 - percentile) * 100))
+    var_ndays = cp.sqrt(days) * var_1day
+    return var_ndays.get().item()
 
 
 if __name__ == '__main__':
     value_port = 1e9
-    weighted_matrix = np.array([1] * 4)
+    weighted_matrix = cp.array([1] * 4)
     return_vector = pd.Series([.017, 0.027, 0.022, -0.018])
     price_matrix = pd.Series([77.8, 65.2, 89.2, 88.1])
     days = 10
@@ -104,7 +104,7 @@ if __name__ == '__main__':
     print('single_asset_his_test: ',Var_His(value_port, weighted_matrix, return_vector, days, percentile, single_underlying=True))
     print('*' * 50)
     value_port = 1e8
-    weighted_matrix = np.array([0.22, 0.18, 0.16, 0.14, 0.12, 0.08])
+    weighted_matrix = cp.array([0.22, 0.18, 0.16, 0.14, 0.12, 0.08])
     price_matrix = pd.Series([100.1, 98.2, 97.87, 94.54, 99.07, 101.2])
     return_vector = pd.DataFrame(
         [
@@ -120,8 +120,8 @@ if __name__ == '__main__':
     print('multiple asset msmc test: ', Var_MCSM(value_port, price_matrix, weighted_matrix, return_vector, 1, percentile, path, 1))
     print('*' * 50)
     value_port = 1e8
-    weighted_matrix = np.array([1])
-    price_matrix = np.array([100])
+    weighted_matrix = cp.array([1])
+    price_matrix = cp.array([100])
     return_vector = 0.017
     std_value=0.2
     path = 10000

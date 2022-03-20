@@ -27,7 +27,7 @@ def implied_volatility(options_price, underlying_price, strike_price, risk_free,
             d1 = (cp.log(s / k) + (r + pow(sigma, 2) / 2) * t) / (sigma * cp.sqrt(t))
             d2 = d1 - sigma * cp.sqrt(t)
             call_value = s * norm.cdf(d1.get()) - k * cp.exp(-r * t) * norm.cdf(d2.get())
-            return call_value.get().item()
+            return call_value.get()
 
         call_min = call_bs(underlying_price, strike_price, sigma_min, risk_free, t)
         call_max = call_bs(underlying_price, strike_price, sigma_max, risk_free, t)

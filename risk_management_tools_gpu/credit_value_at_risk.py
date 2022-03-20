@@ -1,4 +1,4 @@
-import numpy as np
+import cupy as cp
 from scipy.stats import norm
 
 
@@ -9,12 +9,12 @@ def CVAR(principle,recovery_rate,copula_rho,default_rate,contract_holding_period
     :param recovery_rate: recovery rate when seeing a default
     :param copula_rho: copula function rho
     :param default_rate: default rate
-    :param contract_holding_period: contract holding period
+    :param contract_himport cudf as pdolding_period: contract holding period
     :param available_scale: available scale on normal distribution
     :return: credit value at risk
     """
-    c=1-np.exp(-default_rate*contract_holding_period)
-    v=norm.cdf((norm.ppf(c)+pow(copula_rho,0.5)*norm.ppf(available_scale))/pow(1-copula_rho,0.5))
+    c=1-cp.exp(-default_rate*contract_holding_period)
+    v=norm.cdf((norm.ppf(c.get())+pow(copula_rho,0.5)*norm.ppf(available_scale))/pow(1-copula_rho,0.5))
     var=principle*(1-recovery_rate)*v
     return var
 

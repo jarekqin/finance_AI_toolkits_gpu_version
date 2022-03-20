@@ -1,4 +1,4 @@
-import numpy as np
+import cupy as cp
 
 def CAMP(beta,rm,rf):
     """
@@ -58,13 +58,13 @@ def max_drowback(data):
     :return: max drowback
     """
     n=len(data)
-    dd=np.zeros((n-1,n-1))
+    dd=cp.zeros((n-1,n-1))
     for i in range(n-1):
         pi=data.iloc[i]
         for j in range(i+1,n):
             pj=data.iloc[j]
             dd[i,j-1]=(pi-pj)/pi
-    max_dd=np.mx(dd)
+    max_dd=cp.mx(dd)
     return max_dd
 
 def inform_ratio(rp,rb,trace_error):
