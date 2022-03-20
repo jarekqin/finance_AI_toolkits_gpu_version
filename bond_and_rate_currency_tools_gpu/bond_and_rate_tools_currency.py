@@ -1,3 +1,4 @@
+import cupy as cp
 import numpy as np
 import math
 import pandas as pd
@@ -14,8 +15,8 @@ def bond_price(face_value, rate_freq, ytm, t0, t1, return_true_value=False, par_
     :param t1: ytm of bond
     :return: bond price
     """
-    if not isinstance(ytm, np.ndarray):
-        ytm = np.array(ytm)
+    if not isinstance(ytm, cp.ndarray):
+        ytm = cp.array(ytm)
     t0, t1 = pd.to_datetime(t0).date(), pd.to_datetime(t1).date()
     tensor = (t1 - t0).days / 365
     if math.modf(tensor)[0] > 0.5:
@@ -23,9 +24,9 @@ def bond_price(face_value, rate_freq, ytm, t0, t1, return_true_value=False, par_
     else:
         n = rate_freq * math.floor(tensor) + 1
 
-    t_list = np.arange(n) / rate_freq
-    t_list = np.sort(tensor - t_list)
-    price = 100 * (np.sum(np.exp(-ytm * t_list)) * face_value / rate_freq + np.exp(-ytm[-1] * t_list[-1]))
+    t_list = cp.arange(n) / rate_freq
+    t_list = cp.sort(tensor - t_list)
+    price = 100 * (cp.sum(cp.exp(-ytm * t_list)) * face_value / rate_freq + cp.exp(-ytm[-1] * t_list[-1]))
 
     if return_true_value and par_value != None:
         return price * par_value / unit_par_value
@@ -46,9 +47,9 @@ def fra_value(forward_rate, rate_on_time, risk_free, principle, t1, t2, position
     :return: cash flow
     """
     if position == 'long':
-        return principle * (risk_free - forward_rate) * (t2 - t1) * np.exp(-rate_on_time * t2)
+        return principle * (risk_free - forward_rate) * (t2 - t1) * cp.exp(-rate_on_time * t2)
     else:
-        return principle * (forward_rate - risk_free) * (t2 - t1) * np.exp(-rate_on_time * t2)
+        return principle * (forward_rate - risk_free) * (t2 - t1) * cp.exp(-rate_on_time * t2)
 
 
 def cal_forward_rate(r1, r2, t1, t2):
@@ -118,25 +119,25 @@ def fx_forward_value(forward_rate1, forward_rate2, spot_rate, par, risk_free, ti
     if currency_a == 'A':
         if position == 'long':
             if currency_b == 'A':
-                return spot_rate * (par / forward_rate2 - par / forward_rate1) * np.exp(-risk_free * time)
+                return spot_rate * (par / forward_rate2 - par / forward_rate1) * cp.exp(-risk_free * time)
             else:
-                return (par / forward_rate2 - par / forward_rate1) * np.exp(-risk_free * time)
+                return (par / forward_rate2 - par / forward_rate1) * cp.exp(-risk_free * time)
         else:
             if currency_b == 'A':
-                return spot_rate * (par / forward_rate1 - par / forward_rate2) * np.exp(-risk_free * time)
+                return spot_rate * (par / forward_rate1 - par / forward_rate2) * cp.exp(-risk_free * time)
             else:
-                return (par / forward_rate1 - par / forward_rate2) * np.exp(-risk_free * time)
+                return (par / forward_rate1 - par / forward_rate2) * cp.exp(-risk_free * time)
     else:
         if position == 'long':
             if currency_b == 'A':
-                return (par * forward_rate2 - par * forward_rate1) * np.exp(-risk_free * time)
+                return (par * forward_rate2 - par * forward_rate1) * cp.exp(-risk_free * time)
             else:
-                return (par * forward_rate2 - par * forward_rate1) * np.exp(-risk_free * time) / spot_rate
+                return (par * forward_rate2 - par * forward_rate1) * cp.exp(-risk_free * time) / spot_rate
         else:
             if currency_b == 'A':
-                return (par * forward_rate1 - par * forward_rate2) * np.exp(-risk_free * time)
+                return (par * forward_rate1 - par * forward_rate2) * cp.exp(-risk_free * time)
             else:
-                return (par * forward_rate1 - par * forward_rate2) * np.exp(-risk_free * time) / spot_rate
+                return (par * forward_rate1 - par * forward_rate2) * cp.exp(-risk_free * time) / spot_rate
 
 
 def currency_exchange(currency_rate, foreign, domestic, quote):
@@ -224,7 +225,7 @@ def cal_fra_pay_shibor(risk_free, future_rate, period_risk_free, principle, t0, 
     t0, t1, t2 = pd.to_datetime(t0).date(), pd.to_datetime(t1).date(), pd.to_datetime(t2).date()
     tensor1 = (t2 - t1).days / 365
     tensor2 = (t2 - t0).days / 365
-    payoff = principle * (future_rate - risk_free) * tensor1 * np.exp(-period_risk_free * tensor2)
+    payoff = principle * (future_rate - risk_free) * tensor1 * cp.exp(-period_risk_free * tensor2)
     if position == 1:
         return payoff
     elif position == -1:
@@ -244,11 +245,11 @@ def bond_price_one_discount(bond_rate, fv, frequency, ytm, maturity):
     :return: bond price
     """
     if bond_rate == 0:
-        return np.exp(-ytm * maturity) * fv
+        return cp.exp(-ytm * maturity) * fv
     else:
-        coupon = np.ones_like(maturity) * fv * bond_rate / frequency
-        NPV_coupon = np.sum(coupon * np.exp(-ytm * maturity))
-        NPV_par = fv * np.exp(-ytm * maturity[-1]) if len(maturity) > 1 else fv * np.exp(-ytm * maturity)
+        coupon = cp.ones_like(maturity) * fv * bond_rate / frequency
+        NPV_coupon = cp.sum(coupon * cp.exp(-ytm * maturity))
+        NPV_par = fv * cp.exp(-ytm * maturity[-1]) if len(maturity) > 1 else fv * cp.exp(-ytm * maturity)
     return NPV_coupon + NPV_par
 
 
@@ -263,12 +264,12 @@ def bond_price_diff_discount(bond_rate, fv, frequency, ytm, maturity):
     :return: bond price
     """
     if bond_rate == 0:
-        return np.exp(-ytm * maturity) * fv
+        return cp.exp(-ytm * maturity) * fv
     else:
-        coupon = np.ones_like(maturity) * fv * bond_rate / frequency
-        NPV_coupon = np.sum(coupon * np.exp(-ytm * maturity))
-        NPV_par = fv * np.exp(-ytm[-1] * maturity[-1]) if len(maturity) > 1 and len(ytm) > 1 else \
-            fv * np.exp(-ytm * maturity)
+        coupon = cp.ones_like(maturity) * fv * bond_rate / frequency
+        NPV_coupon = cp.sum(coupon * cp.exp(-ytm * maturity))
+        NPV_par = fv * cp.exp(-ytm[-1] * maturity[-1]) if len(maturity) > 1 and len(ytm) > 1 else \
+            fv * cp.exp(-ytm * maturity)
     return NPV_coupon + NPV_par
 
 
@@ -284,13 +285,13 @@ def cal_ytm(bond_price,face_rate,par,frequency,maturity):
     """
     import scipy.optimize as so
     def f(ytm):
-        coupon = np.ones_like(maturity) * par * face_rate / frequency
-        NPV_coupon = np.sum(coupon * np.exp(-ytm * maturity))
-        NPV_par = par * np.exp(-ytm * maturity[-1]) if len(maturity) > 1 else \
-            par * np.exp(-ytm * maturity)
-        return NPV_coupon+NPV_par-bond_price
+        coupon = cp.ones_like(maturity) * par * face_rate / frequency
+        NPV_coupon = cp.sum(coupon * np.exp(-cp.array(ytm) * cp.array(maturity)))
+        NPV_par = par * cp.exp(-cp.array(ytm) * maturity[-1]) if len(maturity) > 1 else \
+            par * cp.exp(-cp.array(ytm) * cp.array(maturity))
+        return NPV_coupon.get()+NPV_par.get()-bond_price
     if face_rate==0:
-        return (np.log(par/bond_price))/maturity
+        return (cp.log(par/bond_price))/maturity
     else:
         return so.fsolve(func=f,x0=0.1)[0]
 
@@ -307,17 +308,17 @@ def MAC_Duration(fv,par,frequency,ytm,time):
     if fv==0:
         duration=time
     else:
-        coupon=np.ones_like(time)*par*fv/frequency
-        npv_coupon=np.sum(coupon*np.exp(-ytm*time))
-        npv_par=par*np.exp(-ytm*time[-1]) if len(time)>1 else par*np.exp(-ytm*time)
+        coupon=cp.ones_like(time)*par*fv/frequency
+        npv_coupon=cp.sum(coupon*cp.exp(-ytm*time))
+        npv_par=par*cp.exp(-ytm*time[-1]) if len(time)>1 else par*cp.exp(-ytm*time)
         bond_value=npv_par+npv_coupon
         cashflow=coupon
         if len(cashflow)>1:
             cashflow[-1]=par*(1+fv/frequency)
         else:
             cashflow = par * (1 + fv / frequency)
-        weight=cashflow*np.exp(-ytm*time)/bond_value
-        duration=np.sum(time*weight)
+        weight=cashflow*cp.exp(-ytm*time)/bond_value
+        duration=cp.sum(time*weight)
     return duration
 
 def Modified_Duration(fv,par,frequency1,frequency2,ytm,time):
@@ -345,20 +346,20 @@ def Dollar_Duration(fv,par,frequency1,frequency2,ytm,time):
     :param time2: time2 period
     :return: mac duration
     """
-    r=frequency2*np.log(1+ytm/frequency2)
+    r=frequency2*cp.log(1+ytm/frequency2)
     if fv==0:
-        price=par*np.exp(-r*time)
+        price=par*cp.exp(-r*time)
         mac_duration=time
     else:
-        coupon=np.ones_like(time)*par*fv/frequency1
-        npv_coupon=np.sum(coupon*np.exp(-r*time))
-        npv_par=par*np.exp(-r*time[-1]) if len(time)>1 else par*np.exp(-r*time)
+        coupon=cp.ones_like(time)*par*fv/frequency1
+        npv_coupon=cp.sum(coupon*cp.exp(-r*time))
+        npv_par=par*cp.exp(-r*time[-1]) if len(time)>1 else par*cp.exp(-r*time)
         price=npv_par+npv_coupon
         cashflow=coupon
         if len(cashflow)>1:
             cashflow[-1]=par*(1+fv/frequency1)
-        weight=cashflow*np.exp(-r*time)/price
-        mac_duration=np.sum(time*weight)
+        weight=cashflow*cp.exp(-r*time)/price
+        mac_duration=cp.sum(time*weight)
     modified_duration=mac_duration/(1+ytm/frequency2)
     return price*modified_duration
 
@@ -375,17 +376,17 @@ def Convexity(fv,par,frequency,ytm,time):
     if fv==0:
         convexity=time
     else:
-        coupon=np.ones_like(time)*par*fv/frequency
-        npv_coupon=np.sum(coupon*np.exp(-ytm*time))
-        npv_par=par*np.exp(-ytm*time[-1]) if len(time)>1 else par*np.exp(-ytm*time)
+        coupon=cp.ones_like(time)*par*fv/frequency
+        npv_coupon=cp.sum(coupon*cp.exp(-ytm*time))
+        npv_par=par*cp.exp(-ytm*time[-1]) if len(time)>1 else par*cp.exp(-ytm*time)
         bond_value=npv_par+npv_coupon
         cashflow=coupon
         if len(cashflow)>1:
             cashflow[-1]=par*(1+fv/frequency)
         else:
             cashflow = par * (1 + fv / frequency)
-        weight=cashflow*np.exp(-ytm*time)/bond_value
-        convexity=np.sum(pow(time,2)*weight)
+        weight=cashflow*cp.exp(-ytm*time)/bond_value
+        convexity=cp.sum(pow(time,2)*weight)
     return convexity
 
 def default_prob(y1,y2,rate_of_default,time):
@@ -397,8 +398,8 @@ def default_prob(y1,y2,rate_of_default,time):
     :param time: time period
     :return: probability
     """
-    A=(np.exp(-y2*time)-rate_of_default*np.exp(-y1*time))/(1-rate_of_default)
-    prob=-np.log(A)/time-y1
+    A=(cp.exp(-y2*time)-rate_of_default*cp.exp(-y1*time))/(1-rate_of_default)
+    prob=-cp.log(A)/time-y1
     return prob
 
 def cal_Maculay_duration(par_value, payoff_freq, ytm, t0, t1):
@@ -418,14 +419,14 @@ def cal_Maculay_duration(par_value, payoff_freq, ytm, t0, t1):
     else:
         n = payoff_freq * math.floor(tensor) + 1
 
-    t_list = np.arange(n) / payoff_freq
-    t_list = np.sort(tensor - t_list)
+    t_list = cp.arange(n) / payoff_freq
+    t_list = cp.sort(tensor - t_list)
 
     face_value = 100
-    price = face_value * (np.sum(np.exp(-ytm * t_list)) * par_value / payoff_freq +
-                          np.exp(-ytm * t_list[-1]))
-    coupon = np.sum(t_list * np.exp(-ytm * t_list) * face_value * par_value / payoff_freq)
-    par = t_list[-1] * face_value * np.exp(-ytm * t_list[-1])
+    price = face_value * (cp.sum(cp.exp(-ytm * t_list)) * par_value / payoff_freq +
+                          cp.exp(-ytm * t_list[-1]))
+    coupon = cp.sum(t_list * cp.exp(-ytm * t_list) * face_value * par_value / payoff_freq)
+    par = t_list[-1] * face_value * cp.exp(-ytm * t_list[-1])
     duration = (coupon + par) / price
     return duration
 
@@ -447,15 +448,15 @@ def cal_Modified_duration(par_value, payoff_freq, ytm, t0, t1):
     else:
         n = payoff_freq * math.floor(tensor) + 1
 
-    t_list = np.arange(n) / payoff_freq
-    t_list = np.sort(tensor - t_list)
+    t_list = cp.arange(n) / payoff_freq
+    t_list = cp.sort(tensor - t_list)
 
     face_value = 100
-    y_continous = payoff_freq * np.log(1 + ytm / payoff_freq)
-    price = face_value * (np.sum(np.exp(-y_continous * t_list)) * par_value / payoff_freq +
-                          np.exp(-y_continous * t_list[-1]))
-    coupon = np.sum(t_list * np.exp(-y_continous * t_list) * face_value * par_value / payoff_freq)
-    par = t_list[-1] * face_value * np.exp(-ytm * t_list[-1])
+    y_continous = payoff_freq * cp.log(1 + ytm / payoff_freq)
+    price = face_value * (cp.sum(cp.exp(-y_continous * t_list)) * par_value / payoff_freq +
+                          cp.exp(-y_continous * t_list[-1]))
+    coupon = cp.sum(t_list * cp.exp(-y_continous * t_list) * face_value * par_value / payoff_freq)
+    par = t_list[-1] * face_value * cp.exp(-ytm * t_list[-1])
     duration = (coupon + par) / price
     return duration / (1 + ytm / payoff_freq)
 
@@ -477,15 +478,15 @@ def cal_Dollar_duration(par_value, payoff_freq, ytm, t0, t1):
     else:
         n = payoff_freq * math.floor(tensor) + 1
 
-    t_list = np.arange(n) / payoff_freq
-    t_list = np.sort(tensor - t_list)
+    t_list = cp.arange(n) / payoff_freq
+    t_list = cp.sort(tensor - t_list)
 
     face_value = 100
-    y_continous = payoff_freq * np.log(1 + ytm / payoff_freq)
-    price = face_value * (np.sum(np.exp(-y_continous * t_list)) * par_value / payoff_freq +
-                          np.exp(-y_continous * t_list[-1]))
-    coupon = np.sum(t_list * np.exp(-y_continous * t_list) * face_value * par_value / payoff_freq)
-    par = t_list[-1] * face_value * np.exp(-ytm * t_list[-1])
+    y_continous = payoff_freq * cp.log(1 + ytm / payoff_freq)
+    price = face_value * (cp.sum(cp.exp(-y_continous * t_list)) * par_value / payoff_freq +
+                          cp.exp(-y_continous * t_list[-1]))
+    coupon = cp.sum(t_list * cp.exp(-y_continous * t_list) * face_value * par_value / payoff_freq)
+    par = t_list[-1] * face_value * cp.exp(-ytm * t_list[-1])
     mac_duration = (coupon + par) / price
     modi_duration = mac_duration / (1 + ytm / payoff_freq)
     return price * modi_duration
@@ -508,14 +509,14 @@ def cal_bond_value_change(par_value, payoff_freq, ytm, ytm_change, t0, t1, princ
     else:
         n = payoff_freq * math.floor(tensor) + 1
 
-    t_list = np.arange(n) / payoff_freq
-    t_list = np.sort(tensor - t_list)
+    t_list = cp.arange(n) / payoff_freq
+    t_list = cp.sort(tensor - t_list)
 
     face_value = 100
-    price = face_value * (np.sum(np.exp(-ytm * t_list)) * par_value / payoff_freq +
-                          np.exp(-ytm * t_list[-1]))
-    coupon = np.sum(t_list * np.exp(-ytm * t_list) * face_value * par_value / payoff_freq)
-    par = t_list[-1] * face_value * np.exp(-ytm * t_list[-1])
+    price = face_value * (cp.sum(cp.exp(-ytm * t_list)) * par_value / payoff_freq +
+                          cp.exp(-ytm * t_list[-1]))
+    coupon = cp.sum(t_list * cp.exp(-ytm * t_list) * face_value * par_value / payoff_freq)
+    par = t_list[-1] * face_value * cp.exp(-ytm * t_list[-1])
     duration = (coupon + par) / price
     value_change = -price * duration * ytm_change * (principles / face_value)
     return value_change
@@ -538,14 +539,14 @@ def cal_bond_convexity(par_value, payoff_freq, ytm, t0, t1):
     else:
         n = payoff_freq * math.floor(tensor) + 1
 
-    t_list = np.arange(n) / payoff_freq
-    t_list = np.sort(tensor - t_list)
+    t_list = cp.arange(n) / payoff_freq
+    t_list = cp.sort(tensor - t_list)
 
     face_value = 100
-    price = face_value * (np.sum(np.exp(-ytm * t_list)) * par_value / payoff_freq +
-                          np.exp(-ytm * t_list[-1]))
-    coupon = np.sum(t_list ** 2 * np.exp(-ytm * t_list) * face_value * par_value / payoff_freq)
-    par = (t_list[-1] ** 2) * face_value * np.exp(-ytm * t_list[-1])
+    price = face_value * (cp.sum(cp.exp(-ytm * t_list)) * par_value / payoff_freq +
+                          cp.exp(-ytm * t_list[-1]))
+    coupon = cp.sum(t_list ** 2 * cp.exp(-ytm * t_list) * face_value * par_value / payoff_freq)
+    par = (t_list[-1] ** 2) * face_value * cp.exp(-ytm * t_list[-1])
     convexity = (coupon + par) / price
     return convexity
 
@@ -569,17 +570,17 @@ def cal_bond_convexity_change(par_value, payoff_freq, ytm, ytm_change, bond_face
     else:
         n = payoff_freq * math.floor(tensor) + 1
 
-    t_list = np.arange(n) / payoff_freq
-    t_list = np.sort(tensor - t_list)
+    t_list = cp.arange(n) / payoff_freq
+    t_list = cp.sort(tensor - t_list)
 
     face_value = 100
-    price = face_value * (np.sum(np.exp(-ytm * t_list)) * par_value / payoff_freq +
-                          np.exp(-ytm * t_list[-1]))
-    coupon1 = np.sum(t_list * np.exp(-ytm * t_list) * face_value * par_value / payoff_freq)
-    par1 = t_list[-1] * face_value * np.exp(-ytm * t_list[-1])
+    price = face_value * (cp.sum(cp.exp(-ytm * t_list)) * par_value / payoff_freq +
+                          cp.exp(-ytm * t_list[-1]))
+    coupon1 = cp.sum(t_list * cp.exp(-ytm * t_list) * face_value * par_value / payoff_freq)
+    par1 = t_list[-1] * face_value * cp.exp(-ytm * t_list[-1])
     D = (coupon1 + par1) / price
-    coupon2 = np.sum(t_list ** 2 * np.exp(-ytm * t_list) * face_value * par_value / payoff_freq)
-    par2 = (t_list[-1] ** 2) * face_value * np.exp(-ytm * t_list[-1])
+    coupon2 = cp.sum(t_list ** 2 * cp.exp(-ytm * t_list) * face_value * par_value / payoff_freq)
+    par2 = (t_list[-1] ** 2) * face_value * cp.exp(-ytm * t_list[-1])
     convexity = (coupon2 + par2) / price
     value_change = (-D * price * ytm_change + 0.5 * convexity * price * ytm_change ** 2) * bond_face_value / face_value
     return value_change
@@ -587,10 +588,10 @@ def cal_bond_convexity_change(par_value, payoff_freq, ytm, ytm_change, bond_face
 
 def plot_forward_rate_line(spot_rate, forward_rate, time_list, x_lalbe, y_label, title, save_path=None):
     plt.figure(figsize=(30, 15))
-    plt.plot(time_list, spot_rate, 'r-', label='spot rate line', lw=2.5)
-    plt.plot(time_list, spot_rate, 'bo', label='zero rate')
-    plt.plot(time_list, forward_rate, 'c-', label='forward rate line', lw=2.5)
-    plt.plot(time_list, forward_rate, 'mo', label='forward rate')
+    plt.plot(time_list.get(), spot_rate.get(), 'r-', label='spot rate line', lw=2.5)
+    plt.plot(time_list.get(), spot_rate.get(), 'bo', label='zero rate')
+    plt.plot(time_list.get(), forward_rate.get(), 'c-', label='forward rate line', lw=2.5)
+    plt.plot(time_list.get(), forward_rate.get(), 'mo', label='forward rate')
     plt.xticks(fontsize=22)
     plt.xlabel(x_lalbe, fontsize=30)
     plt.yticks(fontsize=22)
@@ -605,7 +606,7 @@ def plot_forward_rate_line(spot_rate, forward_rate, time_list, x_lalbe, y_label,
 
 
 if __name__ == '__main__':
-    r_list = [0.02461687, 0.026397, 0.02697966, 0.02741662, 0.02812507, 0.02903182]
+    r_list = cp.array([0.02461687, 0.026397, 0.02697966, 0.02741662, 0.02812507, 0.02903182])
     t0 = '2019-05-31'
     t1 = '2020-05-25'
     t2 = '2020-11-28'
@@ -622,11 +623,11 @@ if __name__ == '__main__':
     print(bond_price(coupon1, m1, r_list[0:2], t0, t1, True, par1, par))
     print(bond_price(coupon2, m2, r_list[0:3], t0, t2, True, par2, par))
     print('-' * 50, 'beautifully color line', '-' * 50)
-    test_list = np.arange(1, 11)
-    spot_rate_jun = np.array(
+    test_list = cp.arange(1, 11)
+    spot_rate_jun = cp.array(
         [0.03159, 0.032568, 0.033124, 0.033367, 0.033507, 0.034313, 0.034852, 0.034822, 0.034773, 0.034756])
     forward_rate_jun = cal_forward_rate(spot_rate_jun[:9], spot_rate_jun[1:], test_list[:9], test_list[1:])
-    forward_rate_jun = np.append(spot_rate_jun[0], forward_rate_jun)
+    forward_rate_jun = cp.append(spot_rate_jun[0], forward_rate_jun)
     print('forward rate test', forward_rate_jun)
     plot_forward_rate_line(spot_rate_jun, forward_rate_jun, test_list, 'time period', 'rate', '2018 Jun Bond rate line')
     print('-' * 50, 'beautifully color line', '-' * 50)
@@ -671,9 +672,9 @@ if __name__ == '__main__':
     print('-' * 50, 'beautifully color line', '-' * 50)
     print(bond_price_one_discount(0, 100, 0, 0.01954, 0.5))
     print('-' * 50, 'beautifully color line', '-' * 50)
-    print(cal_ytm(104.802,0.0369,100,2,np.arange(1,2*4+1)/2))
+    print(cal_ytm(104.802,0.0369,100,2,cp.arange(1,2*4+1)/2))
     print('-' * 50, 'beautifully color line', '-' * 50)
-    list1=np.arange(1,2*4+1)/2
+    list1=cp.arange(1,2*4+1)/2
     print(MAC_Duration(0.0369,100,2,0.024,list1))
     print('-' * 50, 'beautifully color line', '-' * 50)
     print(Modified_Duration(0.0369,100,2,2,0.024145,list1))

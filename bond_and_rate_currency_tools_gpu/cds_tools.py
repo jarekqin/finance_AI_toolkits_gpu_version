@@ -1,5 +1,5 @@
 import numpy as np
-
+import cupy as cp
 
 def cds_spread(Lambda,recover_rate,zero_rate,contract_maturity,frequency):
     """
@@ -11,9 +11,9 @@ def cds_spread(Lambda,recover_rate,zero_rate,contract_maturity,frequency):
     :param frequency: payoff frequency
     :return: cds spread
     """
-    t_list=np.arange(frequency*contract_maturity+1)/frequency
-    a=np.sum(np.exp(-Lambda*t_list[:-1]-zero_rate*t_list[1:]))
-    b=np.sum(np.exp(-(Lambda+zero_rate)*t_list[1:]))
+    t_list=cp.arange(frequency*contract_maturity+1)/frequency
+    a=cp.sum(cp.exp(-Lambda*t_list[:-1]-zero_rate*t_list[1:]))
+    b=cp.sum(cp.exp(-(Lambda+zero_rate)*t_list[1:]))
     spread=frequency*(1-recover_rate)*(a/b-1)
     return spread
 
@@ -32,7 +32,7 @@ def cds_cashflow(spread,frequency,t1,t2,principle,recovery_rate,trader,event=Fal
     """
     if not event:
         n=frequency*t1
-        cashflow=spread*principle*np.ones(n)/frequency
+        cashflow=spread*principle*cp.ones(n)/frequency
         if trader=='buyer':
             cf=-cashflow
         else:
@@ -41,7 +41,7 @@ def cds_cashflow(spread,frequency,t1,t2,principle,recovery_rate,trader,event=Fal
         default_pay=(1-recovery_rate)*principle
         if frequency==1:
             n=int(t2)*frequency+1
-            cashflow=spread*principle*np.ones(n)/frequency
+            cashflow=spread*principle*cp.ones(n)/frequency
             spread_end=(t2-int(t2))*spread*principle
             cashflow[-1]=spread_end-default_pay
             if trader=='buyer':
@@ -50,7 +50,7 @@ def cds_cashflow(spread,frequency,t1,t2,principle,recovery_rate,trader,event=Fal
                 cf=cashflow
         else:
             n=(int(t2)+1)/frequency
-            cashflow=spread*principle*np.ones(n)/frequency
+            cashflow=spread*principle*cp.ones(n)/frequency
             spread_end=(t2-int(t2)-0.5)*spread*principle
             cashflow[-1]=spread_end-default_pay
             if trader=='buyer':
@@ -63,7 +63,7 @@ def cds_cashflow(spread,frequency,t1,t2,principle,recovery_rate,trader,event=Fal
 
 
 if __name__=='__main__':
-    zero_rate=np.array([0.021276,0.022853,0.024036,0.025010,0.025976])
+    zero_rate=cp.array([0.021276,0.022853,0.024036,0.025010,0.025976])
     recovery_rate=0.4
     frequency=1
     maturity=5
